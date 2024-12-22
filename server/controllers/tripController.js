@@ -97,7 +97,7 @@ exports.deleteTrip = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this trip' });
     }
 
-    await trip.remove();
+    await Trip.deleteOne({ _id: req.params.id });
     res.json({ message: 'Trip removed' });
   } catch (error) {
     res.status(400).json({ message: error.message });
