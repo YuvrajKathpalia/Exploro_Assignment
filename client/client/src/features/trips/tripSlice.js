@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../../services/api'; 
 
 const initialState = {
   trips: [],
@@ -11,119 +11,85 @@ const initialState = {
   message: '',
 };
 
-export const getTrips = createAsyncThunk(
-    'trips/getAll',
-    async (_, thunkAPI) => {
-      try {
-        const response = await axios.get('http://localhost:1000/api/trips');  // Ensure this URL is correct
-        return response.data;
-      } catch (error) {
-        const message = error.response?.data?.message || error.message;
-        return thunkAPI.rejectWithValue(message);
-      }
-    }
-  );
-  
-  
-// Get single trip
-export const getTrip = createAsyncThunk(
-  'trips/getTrip',
-  async (id, thunkAPI) => {
-    try {
-      const response = await axios.get(`http://localhost:1000/api/trips/${id}`);
-      return response.data;
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-      return thunkAPI.rejectWithValue(message);
-    }
+// Get all trips
+export const getTrips = createAsyncThunk('trips/getAll', async (_, thunkAPI) => {
+  try {
+    const response = await api.get('/trips'); // Base URL handled in api.js
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to fetch trips';
+    return thunkAPI.rejectWithValue(message);
   }
-);
+});
+
+// Get single trip
+export const getTrip = createAsyncThunk('trips/getTrip', async (id, thunkAPI) => {
+  try {
+    const response = await api.get(`/trips/${id}`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to fetch trip';
+    return thunkAPI.rejectWithValue(message);
+  }
+});
 
 // Create new trip (organizer only)
-export const createTrip = createAsyncThunk(
-  'trips/create',
-  async (tripData, thunkAPI) => {
-    try {
-      const token = thunkAPI.getState().auth.user.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const response = await axios.post('http://localhost:1000/api/trips', tripData, config);
-      return response.data;
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-      return thunkAPI.rejectWithValue(message);
-    }
+export const createTrip = createAsyncThunk('trips/create', async (tripData, thunkAPI) => {
+  try {
+    const response = await api.post('/trips', tripData);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to create trip';
+    return thunkAPI.rejectWithValue(message);
   }
-);
+});
 
 // Update trip (organizer only)
-export const updateTrip = createAsyncThunk(
-  'trips/update',
-  async ({ id, tripData }, thunkAPI) => {
-    try {
-      const token = thunkAPI.getState().auth.user.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const response = await axios.put(`http://localhost:1000/api/trips/${id}`, tripData, config);
-      return response.data;
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-      return thunkAPI.rejectWithValue(message);
-    }
+export const updateTrip = createAsyncThunk('trips/update', async ({ id, tripData }, thunkAPI) => {
+  try {
+    const response = await api.put(`/trips/${id}`, tripData);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to update trip';
+    return thunkAPI.rejectWithValue(message);
   }
-);
+});
 
 // Delete trip (organizer only)
-export const deleteTrip = createAsyncThunk(
-  'trips/delete',
-  async (id, thunkAPI) => {
-    try {
-      const token = thunkAPI.getState().auth.user.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const response = await axios.delete(`http://localhost:1000/api/trips/${id}`, config);
-      return { id, message: response.data.message };
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-      return thunkAPI.rejectWithValue(message);
-    }
+export const deleteTrip = createAsyncThunk('trips/delete', async (id, thunkAPI) => {
+  try {
+    const response = await api.delete(`/trips/${id}`);
+    return { id, message: response.data.message };
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to delete trip';
+    return thunkAPI.rejectWithValue(message);
   }
-);
+});
 
 // Get organizer's trips
-export const getOrganizerTrips = createAsyncThunk(
-  'trips/getOrganizerTrips',
-  async (_, thunkAPI) => {
-    try {
-      const token = thunkAPI.getState().auth.user.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const response = await axios.get('http://localhost:1000/api/trips/organizer', config);
-      return response.data;
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-      return thunkAPI.rejectWithValue(message);
-    }
+export const getOrganizerTrips = createAsyncThunk('trips/getOrganizerTrips', async (_, thunkAPI) => {
+  try {
+    const response = await api.get('/trips/organizer');
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to fetch organizer trips';
+    return thunkAPI.rejectWithValue(message);
   }
-);
+});
 
 const tripSlice = createSlice({
   name: 'trips',
   initialState,
   reducers: {
-    reset: (state) => initialState,
+    reset: (state) => {
+      state.trips = [];
+      state.trip = null;
+      state.organizerTrips = [];
+      state.isError = false;
+      state.isSuccess = false;
+      state.isLoading = false;
+      state.message = '';
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -176,10 +142,9 @@ const tripSlice = createSlice({
       .addCase(updateTrip.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.trips = state.trips.map(trip => 
+        state.trips = state.trips.map((trip) =>
           trip._id === action.payload._id ? action.payload : trip
         );
-        state.trip = action.payload;
       })
       .addCase(updateTrip.rejected, (state, action) => {
         state.isLoading = false;
@@ -193,7 +158,7 @@ const tripSlice = createSlice({
       .addCase(deleteTrip.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.trips = state.trips.filter(trip => trip._id !== action.payload.id);
+        state.trips = state.trips.filter((trip) => trip._id !== action.payload.id);
       })
       .addCase(deleteTrip.rejected, (state, action) => {
         state.isLoading = false;
